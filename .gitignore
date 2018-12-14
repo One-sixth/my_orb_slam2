@@ -1,0 +1,54 @@
+# dont ignore some file
+!/DBow3-master/Push_DBoW3_source_in_here
+!/eigen/Push_eigen_source_in_here
+!/g2o-master/Push_g2o_source_in_here
+!/Pangolin-master/Push_pangolin_source_in_here
+
+# some dir
+/DBow3-master/
+/eigen/
+/g2o-master/
+/Pangolin-master/
+
+/example_data/MH_03_medium/mav0/
+/other/
+
+x64/*
+
+.vs/
+Debug/
+Release/
+
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app

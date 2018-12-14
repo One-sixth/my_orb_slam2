@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="DUtils">
+      <UniqueIdentifier>{7769245c-5510-4abe-b968-30e9e2cfb221}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\Converter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Frame.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\FrameDrawer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Initializer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\KeyFrame.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\KeyFrameDatabase.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\LocalMapping.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\LoopClosing.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Map.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\MapDrawer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\MapPoint.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Optimizer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ORBextractor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ORBmatcher.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ORBVocabulary.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\PnPsolver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Sim3Solver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\System.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Tracking.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Viewer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DUtils\Random.h">
+      <Filter>DUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="DUtils\Timestamp.h">
+      <Filter>DUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="DUtils\IoUtils.h">
+      <Filter>DUtils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\GlobalData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Converter.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Frame.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FrameDrawer.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Initializer.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\KeyFrame.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\KeyFrameDatabase.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\LocalMapping.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\LoopClosing.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Map.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MapDrawer.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MapPoint.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Optimizer.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ORBextractor.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ORBmatcher.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Sim3Solver.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\System.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Tracking.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Viewer.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DUtils\Random.cpp">
+      <Filter>DUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="DUtils\Timestamp.cpp">
+      <Filter>DUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\PnPsolver.cc">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DUtils\IoUtils.cpp">
+      <Filter>DUtils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GlobalData.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
