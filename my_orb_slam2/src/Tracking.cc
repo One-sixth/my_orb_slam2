@@ -37,6 +37,7 @@
 #include "Viewer.h"
 #include "KeyFrameDatabase.h"
 #include "GlobalData.h"
+#include "PresetParameters.h"
 
 namespace ORB_SLAM2
 {
@@ -275,6 +276,8 @@ namespace ORB_SLAM2
 
 		mLastProcessedState = mState;
 
+		// 阻止回收线程清除内存
+		unique_lock<mutex> lock2(mMutexRecycling);
 		// Get Map Mutex -> Map cannot be changed
 		unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
@@ -285,7 +288,8 @@ namespace ORB_SLAM2
 			else
 				MonocularInitialization();
 
-			mpFrameDrawer->Update(this);
+			if (mpViewer)
+				mpFrameDrawer->Update(this);
 
 			if (mState != OK)
 				return;
@@ -294,6 +298,8 @@ namespace ORB_SLAM2
 		{
 			// System is initialized. Track Frame.
 			bool bOK;
+			// 当 mLastFrame.mpReferenceKF 是 bad 时，不要使用 TrackWithMotionModel
+			bool needTrackWithRefKF = false;
 
 			// 如果 mpReferenceKF 是bad，则在pMap中有效关键帧中选一个最新的
 			if (KeyFrame::isBad(mpReferenceKF, mpMap))
@@ -308,6 +314,7 @@ namespace ORB_SLAM2
 			if (KeyFrame::isBad(mLastFrame.mpReferenceKF, mpMap))
 			{
 				mLastFrame.mpReferenceKF = mpReferenceKF;
+				needTrackWithRefKF = true;
 				cerr << "mLastFrame.mpReferenceKF is bad!" << endl;
 			}
 
@@ -323,7 +330,7 @@ namespace ORB_SLAM2
 					// 目前不进行replace，只是单纯将无效地图点替换为nullptr
 					CheckReplacedInLastFrame();
 
-					if (mVelocity.empty() || mCurrentFrame.mnId < mnLastRelocFrameId + 2)
+					if (needTrackWithRefKF || mVelocity.empty() || mCurrentFrame.mnId < mnLastRelocFrameId + 2)
 					{
 						bOK = TrackReferenceKeyFrame();
 					}
@@ -355,7 +362,7 @@ namespace ORB_SLAM2
 					{
 						// In last frame we tracked enough MapPoints in the map
 
-						if (!mVelocity.empty())
+						if (!needTrackWithRefKF || !mVelocity.empty())
 						{
 							bOK = TrackWithMotionModel();
 						}
@@ -436,7 +443,8 @@ namespace ORB_SLAM2
 				mState = LOST;
 
 			// Update drawer
-			mpFrameDrawer->Update(this);
+			if (mpViewer)
+				mpFrameDrawer->Update(this);
 
 			// If tracking were good, check if we insert a keyframe
 			if (bOK)
@@ -452,7 +460,8 @@ namespace ORB_SLAM2
 				else
 					mVelocity = cv::Mat();
 
-				mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
+				if (mpViewer)
+					mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
 
 				// Clean VO matches
 				// 清除VO点，所以这里的点不能 SetBadFlag 而是要给后面进行 Delete
@@ -511,26 +520,46 @@ namespace ORB_SLAM2
 		}
 
 		// Store frame pose information to retrieve the complete camera trajectory afterwards.
-		if (!mCurrentFrame.mTcw.empty())
+		if (!dontSaveTrack)
 		{
-			cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();
-			mlRelativeFramePoses.push_back(Tcr);
-			mlpReferences.push_back(mpReferenceKF);
-			mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
-			mlbLost.push_back(mState == LOST);
+			if (!mCurrentFrame.mTcw.empty())
+			{
+				cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();
+				mlRelativeFramePoses.push_back(Tcr);
+				mlpReferences.push_back(mpReferenceKF);
+				mlFrameTimes.push_back(mCurrentFrame.mTimeStamp);
+				mlbLost.push_back(mState == LOST);
+			}
+			else
+			{
+				// This can happen if tracking is lost
+				// 当加载地图时，这里的已有轨迹均为0，此时跳过下面的操作
+				if (mlRelativeFramePoses.size())
+					mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
+				if (mlpReferences.size())
+					mlpReferences.push_back(mlpReferences.back());
+				if (mlFrameTimes.size())
+					mlFrameTimes.push_back(mlFrameTimes.back());
+				if (mlbLost.size())
+					mlbLost.push_back(mState == LOST);
+			}
 		}
 		else
 		{
-			// This can happen if tracking is lost
-			// 当加载地图时，这里的已有轨迹均为0，此时跳过下面的操作
-			if (mlRelativeFramePoses.size())
-				mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
-			if (mlpReferences.size())
-				mlpReferences.push_back(mlpReferences.back());
-			if (mlFrameTimes.size())
-				mlFrameTimes.push_back(mlFrameTimes.back());
-			if (mlbLost.size())
-				mlbLost.push_back(mState == LOST);
+			if (!mCurrentFrame.mTcw.empty())
+			{
+				cv::Mat Tcr = mCurrentFrame.mTcw*mCurrentFrame.mpReferenceKF->GetPoseInverse();
+				mlRelativeFramePoses.push_back(Tcr);
+			}
+			else
+			{
+				// This can happen if tracking is lost
+				// 当加载地图时，这里的已有轨迹均为0，此时跳过下面的操作
+				if (mlRelativeFramePoses.size())
+					mlRelativeFramePoses.push_back(mlRelativeFramePoses.back());
+			}
+			if (mlRelativeFramePoses.size() > 2)
+				mlRelativeFramePoses.pop_front();
 		}
 
 		// calc fps
@@ -594,7 +623,8 @@ namespace ORB_SLAM2
 
 			mpMap->mvpKeyFrameOrigins.push_back(pKFini);
 
-			mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
+			if (mpViewer)
+				mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
 
 			mState = OK;
 		}
@@ -769,7 +799,8 @@ namespace ORB_SLAM2
 
 		mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
 
-		mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
+		if (mpViewer)
+			mpMapDrawer->SetCurrentCameraPose(pKFcur->GetPose());
 
 		mpMap->mvpKeyFrameOrigins.push_back(pKFini);
 
@@ -1333,13 +1364,17 @@ namespace ORB_SLAM2
 
 		// Include also some not-already-included keyframes that are neighbors to already-included keyframes
 		//for (vector<KeyFrame*>::const_iterator itKF = mvpLocalKeyFrames.begin(), itEndKF = mvpLocalKeyFrames.end(); itKF != itEndKF; itKF++)
-		for (auto itKF = mvpLocalKeyFrames.begin(); itKF != mvpLocalKeyFrames.end(); itKF++)
+		// 因为迭代器可能会失效，所以这里不使用迭代器，这里使用索引
+		//for (auto itKF = mvpLocalKeyFrames.begin(); itKF != mvpLocalKeyFrames.end(); itKF++)
+		for (auto itKF = 0; itKF < mvpLocalKeyFrames.size(); ++itKF)
 		{
 			// Limit the number of keyframes
 			if (mvpLocalKeyFrames.size() > 80)
 				break;
 
-			KeyFrame *pKF = *itKF;
+			// 注意迭代器失效问题
+			//KeyFrame *pKF = *itKF;
+			KeyFrame *pKF = mvpLocalKeyFrames[itKF];
 			if (KeyFrame::isBad(pKF, mpMap))
 				continue;
 
@@ -1394,6 +1429,7 @@ namespace ORB_SLAM2
 		}
 	}
 
+//#pragma optimize("", off)
 	bool Tracking::Relocalization()
 	{
 		// Compute Bag of Words Vector
@@ -1522,7 +1558,8 @@ namespace ORB_SLAM2
 
 					int nGood = Optimizer::PoseOptimization(mpGlobalData, &mCurrentFrame);
 
-					if (nGood < 10)
+					if (nGood < 5)
+					/*if (nGood < 10)*/
 					{
 						//// pnpsolver have been change
 						//vbDiscarded[i] = true;
@@ -1530,7 +1567,7 @@ namespace ORB_SLAM2
 
 						continue;
 					}
-
+					
 					for (int io = 0; io < mCurrentFrame.N; io++)
 						if (mCurrentFrame.mvbOutlier[io])
 							mCurrentFrame.mvpMapPoints[io] = nullptr;
@@ -1578,6 +1615,9 @@ namespace ORB_SLAM2
 			}
 		}
 
+		for (auto it : vpPnPsolvers)
+			delete it;
+
 		if (!bMatch)
 		{
 			return false;
@@ -1589,6 +1629,7 @@ namespace ORB_SLAM2
 		}
 
 	}
+//#pragma optimize("", on)
 
 	void Tracking::Reset()
 	{
@@ -1599,7 +1640,7 @@ namespace ORB_SLAM2
 			mpViewer->RequestStop();
 			while (!mpViewer->isStopped())
 				//usleep(3000);
-				this_thread::sleep_for(std::chrono::microseconds(3000));
+				this_thread::sleep_for(std::chrono::milliseconds(3));
 		}
 
 		// Reset Local Mapping

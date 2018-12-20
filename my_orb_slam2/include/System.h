@@ -112,9 +112,12 @@ namespace ORB_SLAM2
 		// See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
 		void SaveTrajectoryKITTI(const string &filename);
 
-		// TODO: Save/Load functions
+		// Save/Load functions
 		bool SaveMap(const string &filename);
 		bool LoadMap(const string &filename);
+
+		// Set whether to save the track
+		void SetDontSaveTrack(bool flag);
 
 		// Information from most recent processed frame
 		// You can call this right after TrackMonocular (or stereo or RGBD)

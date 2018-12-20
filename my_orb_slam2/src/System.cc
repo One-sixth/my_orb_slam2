@@ -86,7 +86,7 @@ namespace ORB_SLAM2
 		cout << "Vocabulary loaded!" << endl << endl;
 
 		//Create KeyFrame Database
-		mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
+		mpKeyFrameDatabase = new KeyFrameDatabase(mpVocabulary, mpGlobalData);
 		mpGlobalData->mpKeyFrameDatabase = mpKeyFrameDatabase;
 
 		//Create the Map
@@ -370,7 +370,7 @@ namespace ORB_SLAM2
 		cv::Mat Two = vpKFs[0]->GetPoseInverse();
 
 		ofstream f;
-		f.open(filename.c_str());
+		f.open(filename);
 		f << fixed;
 
 		// Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
@@ -389,19 +389,22 @@ namespace ORB_SLAM2
 				continue;
 
 			KeyFrame *pKF = *lRit;
+			
+			if (KeyFrame::isBad(pKF, mpMap))
+				continue;
 
 			cv::Mat Trw = cv::Mat::eye(4, 4, CV_32F);
 
 			// If the reference keyframe was culled, traverse the spanning tree to get a suitable keyframe.
-			while (KeyFrame::isBad(pKF, mpMap))
-			{
-				Trw = Trw * pKF->mTcp;
-				pKF = pKF->GetParent();
-			}
+			//while (KeyFrame::isBad(pKF, mpMap))
+			//{
+			//	Trw = Trw * pKF->mTcp;
+			//	pKF = pKF->GetParent();
+			//}
 
-			Trw = Trw * pKF->GetPose()*Two;
+			Trw = Trw * pKF->GetPose() * Two;
 
-			cv::Mat Tcw = (*lit)*Trw;
+			cv::Mat Tcw = (*lit) * Trw;
 			cv::Mat Rwc = Tcw.rowRange(0, 3).colRange(0, 3).t();
 			cv::Mat twc = -Rwc * Tcw.rowRange(0, 3).col(3);
 
@@ -581,6 +584,11 @@ namespace ORB_SLAM2
 
 		cout << "Load map success!" << endl;
 		return true;
+	}
+
+	void System::SetDontSaveTrack(bool flag)
+	{
+		mpTracker->dontSaveTrack = flag;
 	}
 
 	int System::GetTrackingState()

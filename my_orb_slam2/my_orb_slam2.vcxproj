@@ -31,6 +31,7 @@
     <ClInclude Include="include\ORBmatcher.h" />
     <ClInclude Include="include\ORBVocabulary.h" />
     <ClInclude Include="include\PnPsolver.h" />
+    <ClInclude Include="include\PresetParameters.h" />
     <ClInclude Include="include\Sim3Solver.h" />
     <ClInclude Include="include\System.h" />
     <ClInclude Include="include\Tracking.h" />

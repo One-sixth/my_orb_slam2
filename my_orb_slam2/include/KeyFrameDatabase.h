@@ -34,13 +34,14 @@ namespace ORB_SLAM2
 	class KeyFrame;
 	class Frame;
 	class ORBVocabulary;
+	class GlobalData;
 
 
 	class KeyFrameDatabase
 	{
 	public:
 
-		KeyFrameDatabase(const ORBVocabulary &voc);
+		KeyFrameDatabase(ORBVocabulary *voc, GlobalData *pGlobalData);
 
 		void add(KeyFrame *pKF);
 
@@ -57,7 +58,9 @@ namespace ORB_SLAM2
 	protected:
 
 		// Associated vocabulary
-		const ORBVocabulary *mpVoc;
+		ORBVocabulary *mpVoc = nullptr;
+
+		GlobalData *mpGlobalData = nullptr;
 
 		// Inverted file
 		vector<list<KeyFrame*>> mvInvertedFile;

@@ -29,6 +29,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 
 #include <System.h>
 
@@ -132,8 +133,8 @@ int main(int argc, char **argv1)
 	// Main loop
 	SLAM.LoadMap("stereo.map");
 
-	cv::Mat imLeft, imRight, imLeftRect, imRightRect;
-	for (int ni = 0; ni < nImages; ni+=1)
+	cv::Mat imLeft, imRight, imLeftRect, imRightRect, imStereo;
+	for (int ni = 100; ni < nImages; ni+=1)
 	{
 		// Read left and right images from file
 		imLeft = cv::imread(vstrImageLeft[ni], cv::IMREAD_UNCHANGED);
@@ -170,6 +171,24 @@ int main(int argc, char **argv1)
 		double ttrack = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
 
 		vTimesTrack[ni] = ttrack;
+
+		cv::hconcat(imLeftRect, imRightRect, imStereo);
+
+		cv::imshow("stereo_view", imStereo);
+
+		auto key = cv::waitKey(1);
+
+		switch (key)
+		{
+		case 'e':
+			ni -= 50;
+			ni = ni < 0 ? 0 : ni;
+			break;
+		case 'q':
+			ni += 50;
+			ni = ni > nImages ? nImages : ni;
+			break;
+		}
 
 	}
 	SLAM.SaveMap("stereo.map");

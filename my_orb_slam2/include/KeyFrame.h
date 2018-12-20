@@ -246,7 +246,8 @@ namespace ORB_SLAM2
 		mutex mMutexPose;
 		// 此处改为递归锁，SetBadFlag()中会让Child对自身使用ChangeParent()，此时会造成死锁
 		recursive_mutex mMutexConnections;
-		mutex mMutexFeatures;
+		// 此处改为递归锁，SetBadFlag()中对MapPoint执行EraseObservation()可能会触发MapPoint::SetBadFlag，然后造成死锁
+		recursive_mutex mMutexFeatures;
 	};
 
 } //namespace ORB_SLAM

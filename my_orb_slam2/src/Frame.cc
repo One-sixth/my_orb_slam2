@@ -95,16 +95,12 @@ namespace ORB_SLAM2
 		// 使用 openmp 比使用 thread 略快一点，平均快0.002s
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel sections
 		{
-#pragma omp for
-			for (int i = 0; i < 2; i++)
-			{
-				if (i == 0)
-					ExtractORB(0, imLeft);
-				else
-					ExtractORB(1, imRight);
-			}
+#pragma omp section
+			ExtractORB(0, imLeft);
+#pragma omp section
+			ExtractORB(1, imRight);
 		}
 #else
 		thread threadLeft(&Frame::ExtractORB, this, 0, imLeft);

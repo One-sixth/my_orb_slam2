@@ -120,6 +120,12 @@ namespace ORB_SLAM2
 		int mnTrackedFrames = 0;
 		float mTrackingFps = 0;
 
+		// Set whether to save the track.
+		bool dontSaveTrack = false;
+
+		// 锁住时，Map的内存回收线程将不会将bad KF MP 删除，此时就算中途产生了 bad KF MP，访问 bad KF MP 也是安全的
+		mutex mMutexRecycling;
+
 	protected:
 
 		// Main tracking function. It is independent of the input sensor.
@@ -220,6 +226,7 @@ namespace ORB_SLAM2
 		bool mbRGB;
 
 		list<MapPoint*> mlpTemporalPoints;
+
 	};
 
 } //namespace ORB_SLAM

@@ -113,6 +113,8 @@ namespace ORB_SLAM2
 			unique_lock<mutex> lock(mMutexLoopQueue);
 			mpCurrentKF = mlpLoopKeyFrameQueue.front();
 			mlpLoopKeyFrameQueue.pop_front();
+			if (KeyFrame::isBad(mpCurrentKF, mpMap))
+				return false;
 			// Avoid that a keyframe can be erased while it is being process by this thread
 			mpCurrentKF->SetNotErase();
 		}
@@ -265,18 +267,17 @@ namespace ORB_SLAM2
 
 		int nCandidates = 0; //candidates with enough matches
 
-		for (int i = 0; i < nInitialCandidates; i++)
+		for (int i = 0; i < nInitialCandidates; ++i)
 		{
 			KeyFrame *pKF = mvpEnoughConsistentCandidates[i];
-
-			// avoid that local mapping erase it while it is being processed in this thread
-			pKF->SetNotErase();
-
 			if (KeyFrame::isBad(pKF, mpMap))
 			{
 				vbDiscarded[i] = true;
 				continue;
 			}
+
+			// avoid that local mapping erase it while it is being processed in this thread
+			pKF->SetNotErase();
 
 			int nmatches = matcher.SearchByBoW(mpCurrentKF, pKF, vvpMapPointMatches[i]);
 
@@ -287,7 +288,7 @@ namespace ORB_SLAM2
 			}
 			else
 			{
-				Sim3Solver* pSolver = new Sim3Solver(mpMap, mpCurrentKF, pKF, vvpMapPointMatches[i], mbFixScale);
+				Sim3Solver *pSolver = new Sim3Solver(mpMap, mpCurrentKF, pKF, vvpMapPointMatches[i], mbFixScale);
 				pSolver->SetRansacParameters(0.99, 20, 300);
 				vpSim3Solvers[i] = pSolver;
 			}
@@ -313,7 +314,7 @@ namespace ORB_SLAM2
 				int nInliers;
 				bool bNoMore;
 
-				Sim3Solver* pSolver = vpSim3Solvers[i];
+				Sim3Solver *pSolver = vpSim3Solvers[i];
 				cv::Mat Scm = pSolver->iterate(5, bNoMore, vbInliers, nInliers);
 
 				// If Ransac reachs max. iterations discard keyframe
@@ -327,7 +328,7 @@ namespace ORB_SLAM2
 				if (!Scm.empty())
 				{
 					vector<MapPoint*> vpMapPointMatches(vvpMapPointMatches[i].size(), nullptr);
-					for (size_t j = 0, jend = vbInliers.size(); j < jend; j++)
+					for (size_t j = 0; j < vbInliers.size(); ++j)
 					{
 						if (vbInliers[j])
 							vpMapPointMatches[j] = vvpMapPointMatches[i][j];
@@ -356,6 +357,10 @@ namespace ORB_SLAM2
 				}
 			}
 		}
+
+		// 释放内存
+		for (auto it = vpSim3Solvers.begin(); it != vpSim3Solvers.end(); ++it)
+			delete *it;
 
 		if (!bMatch)
 		{
@@ -670,9 +675,8 @@ namespace ORB_SLAM2
 
 		int idx = mnFullBAIdx;
 		{
-			////增加互斥
-			//unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
-
+			//增加互斥，BA时不回收内存
+			unique_lock<mutex> lock(mMutexGBARecycling);
 			Optimizer::GlobalBundleAdjustemnt(mpMap, 10, &mbStopGBA, nLoopKF, false);
 		}
 

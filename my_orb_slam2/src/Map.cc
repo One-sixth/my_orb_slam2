@@ -27,6 +27,7 @@
 #include "KeyFrameDatabase.h"
 #include "LoopClosing.h"
 #include "LocalMapping.h"
+#include "PresetParameters.h"
 
 namespace ORB_SLAM2
 {
@@ -230,7 +231,6 @@ namespace ORB_SLAM2
 
 	vector<MapPoint*> Map::GetAllMapPoints()
 	{
-		//unique_lock<mutex> lock(mMutexMap);
 		unique_lock<mutex> lock(mMutexMap);
 		return vector<MapPoint*>(mspMapPoints.begin(), mspMapPoints.end());
 	}
@@ -253,7 +253,7 @@ namespace ORB_SLAM2
 		return mvpReferenceMapPoints;
 	}
 
-	uint32_t Map::GetMaxKFid()
+	uint64_t Map::GetMaxKFid()
 	{
 		//unique_lock<mutex> lock(mMutexMap);
 		//return mnMaxKFid;
@@ -276,7 +276,7 @@ namespace ORB_SLAM2
 		mvpKeyFrameOrigins.clear();
 	}
 
-//#pragma optimize("", off)
+#pragma optimize("", off)
 	void Map::Save(ofstream &f)
 	{
 		//unique_lock<mutex> lock(mMutexMap);
@@ -297,7 +297,7 @@ namespace ORB_SLAM2
 
 		cout << "Map saved!" << endl;
 	}
-//#pragma optimize("", on)
+#pragma optimize("", on)
 
 #pragma optimize("", off)
 	void Map::Load(ifstream &f, Tracking *pTracker)
@@ -377,16 +377,18 @@ namespace ORB_SLAM2
 	{
 		while (true)
 		{
-			this_thread::sleep_for(chrono::seconds(3));
+			this_thread::sleep_for(chrono::seconds(RecyclingInterval));
 			if (!mspWaitForDeleteKeyFrames.empty() || !mspWaitForDeleteMapPoints.empty())
 			{
 				//先让其他线程进入空闲阶段，再锁定自己的mMutexRecycling，不然可能死锁
-				bool islock1 = false;
+				bool islock = false;
 				if (!needRecyclingThreadFinish)
 				{
 					mpGlobalData->mpLocalMapper->mMutexRecycling.lock();
 					mpGlobalData->mpLoopCloser->mMutexRecycling.lock();
-					islock1 = true;
+					mpGlobalData->mpLoopCloser->mMutexGBARecycling.lock();
+					mpGlobalData->mpTracker->mMutexRecycling.lock();
+					islock = true;
 				}
 
 				//unique_lock<recursive_mutex> lock4(mMutexExist);
@@ -402,10 +404,12 @@ namespace ORB_SLAM2
 
 				mspWaitForDeleteMapPoints.clear();
 
-				if (islock1)
+				if (islock)
 				{
 					mpGlobalData->mpLocalMapper->mMutexRecycling.unlock();
 					mpGlobalData->mpLoopCloser->mMutexRecycling.unlock();
+					mpGlobalData->mpLoopCloser->mMutexGBARecycling.unlock();
+					mpGlobalData->mpTracker->mMutexRecycling.unlock();
 				}
 			}
 			if (needRecyclingThreadFinish)

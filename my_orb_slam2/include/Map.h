@@ -70,7 +70,7 @@ namespace ORB_SLAM2
 		uint64_t MapPointsInMap();
 		uint64_t KeyFramesInMap();
 
-		uint32_t GetMaxKFid();
+		uint64_t GetMaxKFid();
 
 		void Clear();
 

@@ -61,6 +61,7 @@ PnPsolver 仅用于Tracking::Relocalization 函数中
 
 #include <vector>
 #include <opencv2/core.hpp>
+#include "PresetParameters.h"
 
 using namespace std;
 
@@ -99,13 +100,13 @@ namespace ORB_SLAM2
 		cv::Mat mtvec;
 
 		// 最大迭代次数
-		int mMaxIterationsCount = 300;
+		int mMaxIterationsCount = PnpMaxIterationsCount;
 		// 重投影误差，重投影误差小于该值的点对的编号会加入inliers
 		// 该值太小，会引起重跟踪变得困难，太大，误差也会变大
-		float mReprojectionError = 6.f;
-		float mConfidence = 0.99;
+		float mReprojectionError = PnpReprojectionError;
+		float mConfidence = PnpConfidence;
 		// 至少有这个数量的点对的重投影误差小于 reprojectionError，否则返回空矩阵
-		int mMinInliers = 50;
+		int mMinInliers = PnpMinInliers;
 
 	};
 

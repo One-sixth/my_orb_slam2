@@ -18,15 +18,13 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+#include <thread>
+#include "DUtils/Random.h"
 #include "Initializer.h"
 #include "Frame.h"
-
-#include "DUtils/Random.h"
-
-//#include "Optimizer.h"
-//#include "ORBmatcher.h"
-
-#include <thread>
 
 namespace ORB_SLAM2
 {
@@ -76,7 +74,7 @@ namespace ORB_SLAM2
 		}
 
 		// Generate sets of 8 points for each RANSAC iteration
-		mvSets = vector< vector<size_t> >(mMaxIterations, vector<size_t>(8, 0));
+		mvSets = vector<vector<size_t>>(mMaxIterations, vector<size_t>(8, 0));
 
 		DUtils::Random::SeedRandOnce(0);
 
@@ -102,12 +100,21 @@ namespace ORB_SLAM2
 		float SH, SF;
 		cv::Mat H, F;
 
+#ifdef _OPENMP
+#pragma omp parallel sections
+			{
+#pragma omp section
+				FindHomography(vbMatchesInliersH, SH, H);
+#pragma omp section
+				FindFundamental(vbMatchesInliersF, SF, F);
+			}
+#else
 		thread threadH(&Initializer::FindHomography, this, ref(vbMatchesInliersH), ref(SH), ref(H));
 		thread threadF(&Initializer::FindFundamental, this, ref(vbMatchesInliersF), ref(SF), ref(F));
-
 		// Wait until both threads have finished
 		threadH.join();
 		threadF.join();
+#endif // _OPENMP
 
 		// Compute ratio of scores
 		float RH = SH / (SH + SF);
@@ -158,7 +165,7 @@ namespace ORB_SLAM2
 			}
 
 			cv::Mat Hn = ComputeH21(vPn1i, vPn2i);
-			H21i = T2inv * Hn*T1;
+			H21i = T2inv * Hn * T1;
 			H12i = H21i.inv();
 
 			currentScore = CheckHomography(H21i, H12i, vbCurrentInliers, mSigma);

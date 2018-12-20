@@ -25,20 +25,19 @@
 #include <cstdint>
 #include <opencv2/core.hpp>
 #include <DBoW3.h>
+#include "PresetParameters.h"
 
 using namespace std;
 
 namespace ORB_SLAM2
 {
 
-	constexpr auto FRAME_GRID_ROWS = 48;
-	constexpr auto FRAME_GRID_COLS = 64;
-
 	class MapPoint;
 	class KeyFrame;
 	class ORBextractor;
 	class GlobalData;
 	class ORBVocabulary;
+
 
 	class Frame
 	{

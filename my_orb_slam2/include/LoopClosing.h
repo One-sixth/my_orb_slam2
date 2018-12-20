@@ -94,6 +94,7 @@ namespace ORB_SLAM2
 
 		//等待删除无效地图点
 		mutex mMutexRecycling;
+		mutex mMutexGBARecycling;
 
 	protected:
 
@@ -144,7 +145,7 @@ namespace ORB_SLAM2
 		cv::Mat mScw;
 		g2o::Sim3 mg2oScw;
 
-		long unsigned int mLastLoopKFid = 0;
+		uint64_t mLastLoopKFid = 0;
 
 		// Variables related to Global Bundle Adjustment
 		bool mbRunningGBA = false;

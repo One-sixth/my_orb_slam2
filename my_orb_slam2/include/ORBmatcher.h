@@ -25,15 +25,12 @@
 #include <vector>
 #include <set>
 #include <opencv2/core.hpp>
+#include "PresetParameters.h"
 
 using namespace std;
 
 namespace ORB_SLAM2
 {
-
-	constexpr int TH_LOW = 50;
-	constexpr int TH_HIGH = 100;
-	constexpr int HISTO_LENGTH = 30;
 
 	class Frame;
 	class KeyFrame;

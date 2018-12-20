@@ -23,23 +23,22 @@
 #include "KeyFrame.h"
 #include "Frame.h"
 #include "ORBVocabulary.h"
+#include "GlobalData.h"
 
 namespace ORB_SLAM2
 {
 
-	KeyFrameDatabase::KeyFrameDatabase(const ORBVocabulary &voc) :
-		mpVoc(&voc)
+	KeyFrameDatabase::KeyFrameDatabase(ORBVocabulary *voc, GlobalData *pGlobalData) :
+		mpVoc(voc), mpGlobalData(pGlobalData)
 	{
-		mvInvertedFile.resize(voc.size());
+		mvInvertedFile.resize(mpVoc->size());
 	}
 
 	void KeyFrameDatabase::add(KeyFrame *pKF)
 	{
 		unique_lock<mutex> lock(mMutex);
 
-		// dbow2to3
-		//for (DBoW2::BowVector::const_iterator vit = pKF->mBowVec.begin(), vend = pKF->mBowVec.end(); vit != vend; vit++)
-		for (DBoW3::BowVector::const_iterator vit = pKF->mBowVec.begin(), vend = pKF->mBowVec.end(); vit != vend; vit++)
+		for (DBoW3::BowVector::const_iterator vit = pKF->mBowVec.begin(); vit != pKF->mBowVec.end(); ++vit)
 			mvInvertedFile[vit->first].push_back(pKF);
 	}
 
@@ -48,14 +47,12 @@ namespace ORB_SLAM2
 		unique_lock<mutex> lock(mMutex);
 
 		// Erase elements in the Inverse File for the entry
-		// dbow2to3
-		//for (DBoW2::BowVector::const_iterator vit = pKF->mBowVec.begin(), vend = pKF->mBowVec.end(); vit != vend; vit++)
-		for (DBoW3::BowVector::const_iterator vit = pKF->mBowVec.begin(), vend = pKF->mBowVec.end(); vit != vend; vit++)
+		for (DBoW3::BowVector::const_iterator vit = pKF->mBowVec.begin(); vit != pKF->mBowVec.end(); ++vit)
 		{
 			// List of keyframes that share the word
 			list<KeyFrame*> &lKFs = mvInvertedFile[vit->first];
 
-			for (list<KeyFrame*>::iterator lit = lKFs.begin(), lend = lKFs.end(); lit != lend; lit++)
+			for (list<KeyFrame*>::iterator lit = lKFs.begin(); lit != lKFs.end(); ++lit)
 			{
 				if (pKF == *lit)
 				{
@@ -72,7 +69,7 @@ namespace ORB_SLAM2
 		mvInvertedFile.resize(mpVoc->size());
 	}
 
-
+//#pragma optimize("", off)
 	vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame *pKF, float minScore)
 	{
 		set<KeyFrame*> spConnectedKeyFrames = pKF->GetConnectedKeyFrames();
@@ -80,39 +77,50 @@ namespace ORB_SLAM2
 
 		// Search all keyframes that share a word with current keyframes
 		// Discard keyframes connected to the query keyframe
+		int nBadKF = 0;
 		{
 			unique_lock<mutex> lock(mMutex);
-			// dbow2to3
-			//for (DBoW2::BowVector::const_iterator vit = pKF->mBowVec.begin(), vend = pKF->mBowVec.end(); vit != vend; vit++)
-			for (DBoW3::BowVector::const_iterator vit = pKF->mBowVec.begin(), vend = pKF->mBowVec.end(); vit != vend; vit++)
+			for (DBoW3::BowVector::const_iterator vit = pKF->mBowVec.begin(); vit != pKF->mBowVec.end(); ++vit)
 			{
 				list<KeyFrame*> &lKFs = mvInvertedFile[vit->first];
 
-				for (list<KeyFrame*>::iterator lit = lKFs.begin(), lend = lKFs.end(); lit != lend; lit++)
+				for (list<KeyFrame*>::iterator lit = lKFs.begin(); lit != lKFs.end();)
 				{
-					KeyFrame *pKFi = *lit;
-					if (pKFi->mnLoopQuery != pKF->mnId)
+					if (!KeyFrame::isBad(*lit, mpGlobalData->mpMap))
 					{
-						pKFi->mnLoopWords = 0;
-						if (!spConnectedKeyFrames.count(pKFi))
+						KeyFrame *pKFi = *lit;
+						if (pKFi->mnLoopQuery != pKF->mnId)
 						{
-							pKFi->mnLoopQuery = pKF->mnId;
-							lKFsSharingWords.push_back(pKFi);
+							pKFi->mnLoopWords = 0;
+							if (!spConnectedKeyFrames.count(pKFi))
+							{
+								pKFi->mnLoopQuery = pKF->mnId;
+								lKFsSharingWords.push_back(pKFi);
+							}
 						}
+						pKFi->mnLoopWords++;
+
+						++lit;
 					}
-					pKFi->mnLoopWords++;
+					else
+					{
+						lit = lKFs.erase(lit);
+						++nBadKF;
+					}
 				}
 			}
 		}
+		if (nBadKF)
+			cout << "Found " << nBadKF << " bad KeyFrame in KeyFrameDatabase::DetectLoopCandidates" << endl;
 
 		if (lKFsSharingWords.empty())
 			return vector<KeyFrame*>();
 
-		list<pair<float, KeyFrame*> > lScoreAndMatch;
+		list<pair<float, KeyFrame*>> lScoreAndMatch;
 
 		// Only compare against those keyframes that share enough words
 		int maxCommonWords = 0;
-		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
+		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(); lit != lKFsSharingWords.end(); ++lit)
 		{
 			if ((*lit)->mnLoopWords > maxCommonWords)
 				maxCommonWords = (*lit)->mnLoopWords;
@@ -123,7 +131,7 @@ namespace ORB_SLAM2
 		int nscores = 0;
 
 		// Compute similarity score. Retain the matches whose score is higher than minScore
-		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
+		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(); lit != lKFsSharingWords.end(); ++lit)
 		{
 			KeyFrame *pKFi = *lit;
 
@@ -146,7 +154,7 @@ namespace ORB_SLAM2
 		float bestAccScore = minScore;
 
 		// Lets now accumulate score by covisibility
-		for (list<pair<float, KeyFrame*> >::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
+		for (list<pair<float, KeyFrame*> >::iterator it = lScoreAndMatch.begin(); it != lScoreAndMatch.end(); ++it)
 		{
 			KeyFrame *pKFi = it->second;
 			vector<KeyFrame*> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
@@ -154,7 +162,7 @@ namespace ORB_SLAM2
 			float bestScore = it->first;
 			float accScore = it->first;
 			KeyFrame *pBestKF = pKFi;
-			for (vector<KeyFrame*>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
+			for (vector<KeyFrame*>::iterator vit = vpNeighs.begin(); vit != vpNeighs.end(); ++vit)
 			{
 				KeyFrame *pKF2 = *vit;
 				if (pKF2->mnLoopQuery == pKF->mnId && pKF2->mnLoopWords > minCommonWords)
@@ -180,7 +188,7 @@ namespace ORB_SLAM2
 		vector<KeyFrame*> vpLoopCandidates;
 		vpLoopCandidates.reserve(lAccScoreAndMatch.size());
 
-		for (list<pair<float, KeyFrame*> >::iterator it = lAccScoreAndMatch.begin(), itend = lAccScoreAndMatch.end(); it != itend; it++)
+		for (list<pair<float, KeyFrame*> >::iterator it = lAccScoreAndMatch.begin(); it != lAccScoreAndMatch.end(); ++it)
 		{
 			if (it->first > minScoreToRetain)
 			{
@@ -196,39 +204,53 @@ namespace ORB_SLAM2
 
 		return vpLoopCandidates;
 	}
+//#pragma optimize("", on)
 
 	vector<KeyFrame*> KeyFrameDatabase::DetectRelocalizationCandidates(Frame *F)
 	{
 		list<KeyFrame*> lKFsSharingWords;
 
 		// Search all keyframes that share a word with current frame
+		int nBadKF = 0;
 		{
 			unique_lock<mutex> lock(mMutex);
-			// dbow2to3
-			//for (DBoW2::BowVector::const_iterator vit = F->mBowVec.begin(), vend = F->mBowVec.end(); vit != vend; vit++)
-			for (DBoW3::BowVector::const_iterator vit = F->mBowVec.begin(), vend = F->mBowVec.end(); vit != vend; vit++)
+
+			for (DBoW3::BowVector::const_iterator vit = F->mBowVec.begin(); vit != F->mBowVec.end(); ++vit)
 			{
 				list<KeyFrame*> &lKFs = mvInvertedFile[vit->first];
 
-				for (list<KeyFrame*>::iterator lit = lKFs.begin(), lend = lKFs.end(); lit != lend; lit++)
+				for (list<KeyFrame*>::iterator lit = lKFs.begin(); lit != lKFs.end();)
 				{
-					KeyFrame *pKFi = *lit;
-					if (pKFi->mnRelocQuery != F->mnId)
+					if (!KeyFrame::isBad(*lit, mpGlobalData->mpMap))
 					{
-						pKFi->mnRelocWords = 0;
-						pKFi->mnRelocQuery = F->mnId;
-						lKFsSharingWords.push_back(pKFi);
+						KeyFrame *pKFi = *lit;
+						if (pKFi->mnRelocQuery != F->mnId)
+						{
+							pKFi->mnRelocWords = 0;
+							pKFi->mnRelocQuery = F->mnId;
+							lKFsSharingWords.push_back(pKFi);
+						}
+						pKFi->mnRelocWords++;
+
+						++lit;
 					}
-					pKFi->mnRelocWords++;
+					else
+					{
+						lit = lKFs.erase(lit);
+						++nBadKF;
+					}
 				}
 			}
 		}
+		if (nBadKF)
+			cout << "Found " << nBadKF << " bad KeyFrame in KeyFrameDatabase::DetectRelocalizationCandidates" << endl;
+
 		if (lKFsSharingWords.empty())
 			return vector<KeyFrame*>();
 
 		// Only compare against those keyframes that share enough words
 		int maxCommonWords = 0;
-		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
+		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(); lit != lKFsSharingWords.end(); ++lit)
 		{
 			if ((*lit)->mnRelocWords > maxCommonWords)
 				maxCommonWords = (*lit)->mnRelocWords;
@@ -236,12 +258,12 @@ namespace ORB_SLAM2
 
 		int minCommonWords = maxCommonWords * 0.8f;
 
-		list<pair<float, KeyFrame*> > lScoreAndMatch;
+		list<pair<float, KeyFrame*>> lScoreAndMatch;
 
 		int nscores = 0;
 
 		// Compute similarity score.
-		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(), lend = lKFsSharingWords.end(); lit != lend; lit++)
+		for (list<KeyFrame*>::iterator lit = lKFsSharingWords.begin(); lit != lKFsSharingWords.end(); ++lit)
 		{
 			KeyFrame *pKFi = *lit;
 
@@ -257,11 +279,11 @@ namespace ORB_SLAM2
 		if (lScoreAndMatch.empty())
 			return vector<KeyFrame*>();
 
-		list<pair<float, KeyFrame*> > lAccScoreAndMatch;
+		list<pair<float, KeyFrame*>> lAccScoreAndMatch;
 		float bestAccScore = 0;
 
 		// Lets now accumulate score by covisibility
-		for (list<pair<float, KeyFrame*> >::iterator it = lScoreAndMatch.begin(), itend = lScoreAndMatch.end(); it != itend; it++)
+		for (list<pair<float, KeyFrame*>>::iterator it = lScoreAndMatch.begin(); it != lScoreAndMatch.end(); ++it)
 		{
 			KeyFrame *pKFi = it->second;
 			vector<KeyFrame*> vpNeighs = pKFi->GetBestCovisibilityKeyFrames(10);
@@ -269,7 +291,7 @@ namespace ORB_SLAM2
 			float bestScore = it->first;
 			float accScore = bestScore;
 			KeyFrame *pBestKF = pKFi;
-			for (vector<KeyFrame*>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++)
+			for (vector<KeyFrame*>::iterator vit = vpNeighs.begin(); vit != vpNeighs.end(); ++vit)
 			{
 				KeyFrame *pKF2 = *vit;
 				if (pKF2->mnRelocQuery != F->mnId)
@@ -293,7 +315,7 @@ namespace ORB_SLAM2
 		set<KeyFrame*> spAlreadyAddedKF;
 		vector<KeyFrame*> vpRelocCandidates;
 		vpRelocCandidates.reserve(lAccScoreAndMatch.size());
-		for (list<pair<float, KeyFrame*> >::iterator it = lAccScoreAndMatch.begin(), itend = lAccScoreAndMatch.end(); it != itend; it++)
+		for (list<pair<float, KeyFrame*> >::iterator it = lAccScoreAndMatch.begin(); it != lAccScoreAndMatch.end(); ++it)
 		{
 			const float &si = it->first;
 			if (si > minScoreToRetain)

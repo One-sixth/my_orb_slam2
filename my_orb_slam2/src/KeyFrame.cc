@@ -259,13 +259,13 @@ namespace ORB_SLAM2
 			cerr << "Found bad MapPoint in KeyFrame::AddMapPoint" << endl;
 			return;
 		}
-		unique_lock<mutex> lock(mMutexFeatures);
+		unique_lock<recursive_mutex> lock(mMutexFeatures);
 		mvpMapPoints[idx] = pMP;
 	}
 
 	void KeyFrame::EraseMapPointMatch(const size_t idx)
 	{
-		unique_lock<mutex> lock(mMutexFeatures);
+		unique_lock<recursive_mutex> lock(mMutexFeatures);
 		mvpMapPoints[idx] = nullptr;
 	}
 
@@ -274,14 +274,14 @@ namespace ORB_SLAM2
 		//增加代码，如果pMP是无效的，则在自身中查找
 		if (MapPoint::isBad(pMP, mpMap))
 		{
-			unique_lock<mutex> lock(mMutexFeatures);
+			unique_lock<recursive_mutex> lock(mMutexFeatures);
 			for (size_t i = 0; i < N; ++i)
 				if (mvpMapPoints[i] == pMP)
 					mvpMapPoints[i] = nullptr;
 		}
 		else
 		{
-			unique_lock<mutex> lock(mMutexFeatures);
+			unique_lock<recursive_mutex> lock(mMutexFeatures);
 			int idx = pMP->GetIndexInKeyFrame(this);
 			if (idx >= 0)
 				mvpMapPoints[idx] = nullptr;
@@ -290,13 +290,13 @@ namespace ORB_SLAM2
 
 	void KeyFrame::ReplaceMapPointMatch(const size_t idx, MapPoint *pMP)
 	{
-		unique_lock<mutex> lock(mMutexFeatures);
+		unique_lock<recursive_mutex> lock(mMutexFeatures);
 		mvpMapPoints[idx] = pMP;
 	}
 
 	set<MapPoint*> KeyFrame::GetMapPoints()
 	{
-		unique_lock<mutex> lock(mMutexFeatures);
+		unique_lock<recursive_mutex> lock(mMutexFeatures);
 
 		//此段代码很少使用，并且用到的时候也有坏点检查
 		//set<MapPoint*> s;
@@ -327,7 +327,7 @@ namespace ORB_SLAM2
 	int KeyFrame::TrackedMapPoints(const int32_t minObs)
 	{
 		// 返回自身所有 观察者数量大于等于minObs的地图点中的数量
-		unique_lock<mutex> lock(mMutexFeatures);
+		unique_lock<recursive_mutex> lock(mMutexFeatures);
 
 		int nPoints = 0;
 		const bool bCheckObs = minObs > 0;
@@ -366,13 +366,13 @@ namespace ORB_SLAM2
 
 	vector<MapPoint*> KeyFrame::GetMapPointMatches()
 	{
-		unique_lock<mutex> lock(mMutexFeatures);
+		unique_lock<recursive_mutex> lock(mMutexFeatures);
 		return mvpMapPoints;
 	}
 
 	MapPoint *KeyFrame::GetMapPoint(const size_t idx)
 	{
-		unique_lock<mutex> lock(mMutexFeatures);
+		unique_lock<recursive_mutex> lock(mMutexFeatures);
 		return mvpMapPoints[idx];
 	}
 
@@ -395,7 +395,7 @@ namespace ORB_SLAM2
 		vpMP.reserve(mvpMapPoints.size());
 
 		{
-			unique_lock<mutex> lockMPs(mMutexFeatures);
+			unique_lock<recursive_mutex> lockMPs(mMutexFeatures);
 			int nBadPoint = 0;
 			for (int i = 0; i < N; ++i)
 				if (mvpMapPoints[i])
@@ -604,23 +604,21 @@ namespace ORB_SLAM2
 
 	void KeyFrame::SetBadFlag()
 	{
+		if (mnId == 0)
+			return;
 		{
 			unique_lock<recursive_mutex> lock(mMutexConnections);
-			if (mnId == 0)
-				return;
-			else if (mbNotErase)
+
+			if (mbNotErase)
 			{
 				mbToBeErased = true;
 				return;
 			}
 
-			unique_lock<mutex> lock1(mMutexFeatures);
-
 			int nBadConnection = 0;
 
 			// 删除与此关键帧有关的任何链接
 			for (map<KeyFrame*, int>::iterator mit = mConnectedKeyFrameWeights.begin(); mit != mConnectedKeyFrameWeights.end(); ++mit)
-				//mit->first->EraseConnection(this);
 				if (!KeyFrame::isBad(mit->first, mpMap))
 					mit->first->EraseConnection(this);
 				else
@@ -629,6 +627,13 @@ namespace ORB_SLAM2
 			if (nBadConnection)
 				cerr << "Found " << nBadConnection << " bad KeyFrame connection in KeyFrame::SetBadFlag" << endl;
 
+			mConnectedKeyFrameWeights.clear();
+			mvpOrderedConnectedKeyFrames.clear();
+		}
+		
+		{
+			//unique_lock<recursive_mutex> lock2(mMutexFeatures);
+
 			int nBadPoint = 0;
 
 			// 在所有地图点中删除自己
@@ -636,19 +641,26 @@ namespace ORB_SLAM2
 				if (mvpMapPoints[i])
 				{
 					if (!MapPoint::isBad(mvpMapPoints[i], mpMap))
+					{
 						mvpMapPoints[i]->EraseObservation(this);
+						mvpMapPoints[i] = nullptr;
+					}
 					else
+					{
 						++nBadPoint;
+						mvpMapPoints[i] = nullptr;
+					}
 				}
 
 			if (nBadPoint)
 				cerr << "Found " << nBadPoint << " bad MapPoint in KeyFrame::SetBadFlag" << endl;
+		}
 
+		mbBad = true;
 
-			mConnectedKeyFrameWeights.clear();
-			mvpOrderedConnectedKeyFrames.clear();
-
-			mbBad = true;
+		{
+			unique_lock<recursive_mutex> lock2(mMutexFeatures);
+			unique_lock<recursive_mutex> lockCon(mMutexConnections);
 
 			if (KeyFrame::isBad(mpParent, mpMap))
 			{
@@ -833,7 +845,7 @@ namespace ORB_SLAM2
 		vector<MapPoint*> vpMapPoints;
 		cv::Mat Tcw_;
 		{
-			unique_lock<mutex> lock(mMutexFeatures);
+			unique_lock<recursive_mutex> lock(mMutexFeatures);
 			unique_lock<mutex> lock2(mMutexPose);
 
 			vpMapPoints = mvpMapPoints;
